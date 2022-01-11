@@ -1,0 +1,66 @@
+[
+      {
+            "title": "Crea la tua prima automazione!",
+            "subtitle": "Guida alla creazione di automazioni",
+            "active": false,
+            "added_propriety": {},
+            "actions": {
+                  "automation": [
+                        [
+                              "Startup"
+                        ]
+                  ],
+                  "action_to_do": [
+                        [
+                              "Network",
+                              "connect",
+                              "iPhone di Davide"
+                        ]
+                  ]
+            }
+      },
+      {
+            "title": "Change wifi",
+            "subtitle": "My Really Awesome Automation",
+            "active": true,
+            "added_propriety": {},
+            "actions": {
+                  "automation": [
+                        [
+                              "Process",
+                              "is_running",
+                              "name",
+                              "FortniteClient-Win64-Shipping.exe"
+                        ]
+                  ],
+                  "action_to_do": [
+                        [
+                              "Network",
+                              "connect",
+                              "Vodafone-A38728582"
+                        ]
+                  ]
+            }
+      },
+      {
+            "title": "Open Spotify",
+            "subtitle": "Open Spotify at startup",
+            "active": true,
+            "added_propriety": {},
+            "actions": {
+                  "automation": [
+                        [
+                              "Startup"
+                        ]
+                  ],
+                  "action_to_do": [
+                        [
+                              "Process",
+                              "start",
+                              "C:\\Users\\david\\AppData\\Roaming\\Spotify\\Spotify.exe",
+                              false
+                        ]
+                  ]
+            }
+      }
+]

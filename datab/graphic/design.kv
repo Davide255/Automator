@@ -1,0 +1,81 @@
+#:kivy 2.0.0         
+
+<Loading_Screen>:
+    BoxLayout:
+        orientation: 'vertical'
+        id: container
+
+        MDLabel:
+            id: lbl
+            text:'Loading'
+            halign: 'center'
+
+
+<Settings>:
+    
+    BoxLayout:
+        orientation: "vertical"
+
+        MDToolbar:
+            title: "Impostazioni"
+            left_action_items: [["menu", lambda x: app.callback(x)]]
+
+        ScrollView:
+            do_scroll_x: False
+            do_scroll_y: True
+
+            GridLayout:
+                id: grid
+                cols: 4
+                padding: [10,10,10,10]
+                row_default_height: 50
+
+                MDLabel:
+                    text: 'tema scuro'
+
+                MDSwitch:
+                    active:
+                        app.active_switch()
+                    on_active: app.change_theme_cls_theme_style()
+                        
+                
+                MDLabel:
+                    text: 'lang'
+
+                MDTextButton:
+                    text: 'chose'
+
+                MDLabel:
+                    text: 'prova'
+
+                MDSwitch:
+
+                MDLabel:
+                    text: 'prova'
+
+                MDSwitch:    
+
+                MDLabel:
+                    text: 'prova'
+
+                MDSwitch:    
+
+                MDLabel:
+                    text: 'prova'
+
+                MDSwitch:    
+
+                MDLabel:
+                    text: 'prova'
+
+                MDSwitch:    
+                
+                MDLabel:
+                    text: 'prova'
+                
+                MDSwitch:
+
+                MDLabel:
+                    text: 'prova'
+                    
+                MDSwitch:
