@@ -41,10 +41,11 @@ The main programm create a Thread that observe your system and it does actions c
 
 # How to create Automations on this BETA?
 
-To crate a new automation, you can add at the 'database.json' in 'cards' a new dict with a random key (for example "My Awesome Automation") like that:
+To crate a new automation, you can add at the 'Automator.json' a new dict like that:
 ```json
-     { "cards":                       <-- cards key
-          { "My Awesome Automation": {
+     [               
+          {}
+     ]
  ```
  define a title:
  ```json
@@ -156,9 +157,9 @@ To crate a new automation, you can add at the 'database.json' in 'cards' a new d
   Now your dict should be like this:
   
   ```json
-       { "cards":   
+       [  
        
-          { "My Awesome Automation": {
+          {
                 "title" : "My Awesome Automation",
                 "subtitle" : "My Really Awesome Automation",
                 "active": "True",
@@ -167,13 +168,11 @@ To crate a new automation, you can add at the 'database.json' in 'cards' a new d
                      "automation": [ ["your actions"] ],
                      "action_to_do": [ ["your actions"] ]
                      }
-                 }
            },
            
            { "Other Automation": {}
            },
-           "settings": {}
-       }
+       ]
  ```
  
  Now save and restart Automator
@@ -185,4 +184,4 @@ To crate a new automation, you can add at the 'database.json' in 'cards' a new d
 Davide Berardi
 
 # Version
-0.1 BETA dev
+0.13 BETA dev
