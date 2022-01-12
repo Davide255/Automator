@@ -4,5 +4,3 @@ kivy
 kivymd
 cython
 pywin32
-screen_brightness_control
-infi.systray
