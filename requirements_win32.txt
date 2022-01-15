@@ -4,3 +4,4 @@ kivy
 kivymd
 cython
 pywin32
+comtypes
