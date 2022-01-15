@@ -13,10 +13,10 @@
 
 # Updates
 
- - Added precompilated libs to speed up the code
- - Cancelled settings screen
- - First implementation of new Create_Screen
- - Bug Fixed
+- Fixed Network bug using windows API
+- Adding .exe support and create first pakage
+- Updated Process calsses in execute file
+- Fixed general bug
    
 # Installation
  - # Prerequisites
