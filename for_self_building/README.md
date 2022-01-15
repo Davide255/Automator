@@ -5,7 +5,7 @@
 - Start building by <code>python -m pyinstaller ./Automator.spec</code>
 - The output will be <code>./dist/Automator.exe</code>
 
-# Non-decisive errors
+# Building errors
 
 - [CRITICAL] [Camera      ] Unable to find any valuable Camera provider. Please enable debug logging (e.g. add -d if running from the command line, or change the log level in the config) and re-run your app to identify potential causes
 
