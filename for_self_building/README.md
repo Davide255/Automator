@@ -1,6 +1,9 @@
 # Self-Building dipendences
 
-For self-building you must install those other dipendences and pyinstaller
+- Install requirements by <code>pip install -r requirements.txt</code> 
+- Move the <code>Automator.spec</code> file in the main directory where <code>Automator.py</code> file sits.
+- Start building by <code>python -m pyinstaller ./Automator.spec</code>
+- The output will be <code>./dist/Automator.exe</code>
 
 # Non-decisive errors
 
