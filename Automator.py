@@ -34,7 +34,7 @@ Updates 0.12
 __version__ = 0.13
 __author__ = 'Davide Berardi'
 
-import os, sys, comtypes, win32gui, win32api, win32con
+import os, sys
 
 if '--V' in sys.argv:
     print('Automator\nVersion:',__version__, '\nAuthor:', __author__)
@@ -43,14 +43,22 @@ if '-h' in sys.argv:
     print(b'\nAutomator\n\nAutomator is an open source program that allow you to create automations on your system!\nversion: 0.13\n\nOptions:\n\n-d                  to activate debug function\n--console           to force the console (adding -d you can choose to hide or show the console)\n--silent            to force the app to run in background without any window\n--No-Sytray         to deactivate temporary the SysTray icon on the taskbar. WARNING: in this way on closing the main window the program will stop also \n                    if you have active the option "Minimize on close"!\n--systemandmulti    to use the main UI also from othre programs\n--V                 return the version of the main program and exit\n'.decode('utf-8'))
     sys.exit(0)
 
+class UnsupportedOS(BaseException):
+    pass
+if sys.platform != 'win32':
+    raise(UnsupportedOs('Your OS is not supported yet')) 
+
 from core.process import getallprocs
+import comtypes, win32gui, win32api, win32con
 
 n = 0
 for i in getallprocs():
     if 'Automator.exe' in i:
         n += 1
     if n > 2:
-        win32gui.MessageBox(None, 'Automator is already running on your os!', 'Stratup error', win32con.MB_OK)
+        hwnd = win32gui.FindWindow(None, 'Automator')
+        win32gui.ShowWindow(hwnd, 1)
+        win32gui.FlashWindow(hwnd, True)
         sys.exit(0)
 
 comtypes.CoUninitialize() #Un initiallize the com space for windows Runtime
@@ -74,13 +82,25 @@ os.environ['PLATFORM'] = 'win32'
 
 #Setting kivy no args
 os.environ['KIVY_NO_ARGS'] = '1'
+os.environ['KIVY_IMAGE'] = "pil,sdl2"
+os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\glew\\bin')
+os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\sdl2\\bin')
 #Internal set of Automator
 os.environ['NOTIFY'] = '1'
 
 from datab.database import database
 if '--first-configuration' in sys.argv:
-    database().configure()
-    os.environ['CONFIGURATION'] = '1'
+    if not os.path.isdir('dlls'):
+        win32gui.MessageBeep(win32con.MB_ICONERROR)
+        res = win32gui.MessageBox(None, 
+        'La directory "{}" non è stata trovata, provare a reinstallare il programma o scricare i files interessati da GitHub.',
+        'CRITICAL ERROR, DLLS MISSING', win32con.MB_OK | win32con.MB_ICONERROR)
+        if res:
+            pass
+        exit(0)
+    os.environ['FIRST_SETUP'] = '1'
+    import webbrowser
+    webbrowser.open('https://github.com/Davide255/Automator/blob/2f82620ffcf594604ead1f74c0f8952db1e193f5/README.md')
 
 import asyncio
 if sys.version_info >= (3, 8, 0):
@@ -129,12 +149,7 @@ P_VERSION = sys.version[:3]
 if not (3.6 <= float(P_VERSION) and float(P_VERSION) <= 3.9):
     raise PythonVersionNotSupported(
         'Python version {} not supported. (interpreter at {})'.format(P_VERSION, sys.executable)
-        )
-
-class UnsupportedOS(BaseException):
-    pass
-if sys.platform != 'win32':
-    raise(UnsupportedOs('Your OS is not supported yet'))    
+        )   
 
 #essential app
 if '-d' in sys.argv:
@@ -589,7 +604,7 @@ class UI(MDApp):
         lbl.halign = 'center'
         lbl.font_style = 'H2'
 
-        cr.bind(on_release=lambda *args: UI().build_menu(2, True))
+        cr.bind(on_release=lambda *args: Screens.Not_Implemetnted())#UI().build_menu(2, True))
         cr.add_widget(lbl)
         gl.add_widget(cr)
         sv.add_widget(gl)
@@ -709,6 +724,15 @@ class UI(MDApp):
 
 #Classe di schermi
 class Screens:
+
+    class Not_Implemetnted:
+        def __init__(self) -> None:
+            res = win32gui.MessageBox(os.environ.get('Main_Window_hWnd'), 
+                'Questa schermata non è ancora disponibile in questa versione Pre-Release!',
+                'Not Implemeted Error',
+                win32con.MB_OK | win32con.MB_ICONINFORMATION)
+            if res:
+                pass
 
     class Loading_Screen(Screen):
         
@@ -910,6 +934,7 @@ class Screens:
     class Template_automation_screen:
 
         def dispatch(self, widget=None):
+            return Screens.Not_Implemetnted()
             if widget == None:
                 screen = self._empty()
             elif isinstance(widget, Widget):
@@ -957,13 +982,6 @@ class Screens:
 if __name__ == '__main__':
     try:
         UI().run()
-        try:
-            is_t_alive = True
-            while is_t_alive != False:
-                time.sleep(15)
-        except StopApplication:
-            Logger.debug('System: Process ended in {}'.format(datetime.datetime.fromtimestamp(time.time() - start_time).strftime("%M:%S")))
-            sys.exit(1)
 
     except (KeyboardInterrupt, StopApplication):
         win32gui.ShowWindow(os.environ['CONSOLE_HWND'], 1)
