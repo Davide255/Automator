@@ -15,6 +15,12 @@ Options
 --systemandmulti    to use the main UI also from othre programs
 --V                 return the version of the main program and exit
 
+Updates 0.14
+============
+- Adding First-Startup configuration
+- 
+- Bug Fixed
+
 Updates 0.13
 ============
 - Fixed Network bug using windows API
@@ -51,18 +57,6 @@ if sys.platform != 'win32':
 from core.process import getallprocs
 import comtypes, win32gui, win32api, win32con
 
-n = 0
-for i in getallprocs():
-    if 'Automator.exe' in i:
-        n += 1
-    if n > 2:
-        hwnd = win32gui.FindWindow(None, 'Automator')
-        win32gui.ShowWindow(hwnd, 1)
-        win32gui.FlashWindow(hwnd, True)
-        sys.exit(0)
-
-comtypes.CoUninitialize() #Un initiallize the com space for windows Runtime
-
 import time, json, datetime
 from typing import IO
 win32api.SetConsoleTitle('Automator - Console')
@@ -70,6 +64,8 @@ time.sleep(0.5)
 os.environ['PID'] = str(os.getpid())
 console_hwnd = win32gui.FindWindow(None, 'Automator - Console')
 
+#Settings
+os.environ['NOTIFY'] = '1'
 if '--No-Systray' in sys.argv:
     os.environ['NO_SYSTRAY'] = '1'
 if not '--console' in sys.argv:
@@ -79,6 +75,47 @@ else:
     os.environ['SHOW_CONSOLE'] = '1'
 os.environ['CONSOLE_HWND'] = str(console_hwnd)
 os.environ['PLATFORM'] = 'win32'
+
+#Setting kivy no args
+os.environ['KIVY_NO_ARGS'] = '1'
+#kivy datas
+os.environ['KIVY_IMAGE'] = "pil,sdl2"
+os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\glew\\bin')
+os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\sdl2\\bin')
+
+from kivy.logger import Logger
+
+# Retrive the home path of Automator
+# Needed in the .exe
+os.chdir(os.path.dirname(__file__))
+onlyfiles = [f for f in os.listdir(os.getcwd()) if os.path.isfile(os.path.join(os.getcwd(), f))]
+if not 'Automator.exe' in onlyfiles:
+    if not 'Automator.py' in onlyfiles:
+        Logger.debug('Adjusting default process directory')
+        from win32com.client import GetObject
+        WMI = GetObject('winmgmts:')
+        processes = WMI.InstancesOf('Win32_Process')                
+        for p in processes :                                
+            if p.Properties_("ProcessID").Value == os.environ['PID']:
+                if os.path.dirname(p.Properties_[7].Value) != os.getcwd():
+                    os.chdir(os.path.dirname(p.Properties_[7].Value))
+                    Logger.debug('System: File running: {}'.format(p.Properties_[7].Value))
+                    Logger.debug('System: Default directory: {}'.format(os.path.dirname(p.Properties_[7].Value)))
+
+n = 0
+for i in getallprocs():
+    if 'Automator.exe' in i:
+        n += 1
+    if n > 2: #If Automator is running, it rises his window!
+        if os.path.isfile('tmp\\UI'): #If is in silent mode, it wakes it up
+            os.remove('tmp\\UI')
+        else: #Else, find his window and blink it!
+            hwnd = win32gui.FindWindow(None, 'Automator')
+            win32gui.ShowWindow(hwnd, 1)
+            win32gui.FlashWindow(hwnd, True)
+        sys.exit(0)
+
+comtypes.CoUninitialize() #Un initiallize the com space for windows Runtime
 
 #Setting kivy no args
 os.environ['KIVY_NO_ARGS'] = '1'
@@ -103,37 +140,10 @@ if '--first-configuration' in sys.argv:
     webbrowser.open('https://github.com/Davide255/Automator/blob/2f82620ffcf594604ead1f74c0f8952db1e193f5/README.md')
 
 import asyncio
-if sys.version_info >= (3, 8, 0):
+if sys.version_info >= (3, 8, 0): #If python version is > than 3.8.0 asyncio must set his policy to WindowsSelectorEventLoopPolicy()
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from libs.LibWin import SysTrayIcon
-from kivy.logger import Logger
-
-# Block to retrive the home path of Automator
-# Needed in the .exe
-os.chdir(os.path.dirname(__file__))
-onlyfiles = [f for f in os.listdir(os.getcwd()) if os.path.isfile(os.path.join(os.getcwd(), f))]
-if not 'Automator.exe' in onlyfiles:
-    if not 'Automator.py' in onlyfiles:
-        Logger.debug('Adjusting default process directory')
-        from win32com.client import GetObject
-        WMI = GetObject('winmgmts:')
-        processes = WMI.InstancesOf('Win32_Process')                
-        for p in processes :                                
-            if p.Properties_("ProcessID").Value == os.getpid():
-                if os.path.dirname(p.Properties_[7].Value) != os.getcwd():
-                    os.chdir(os.path.dirname(p.Properties_[7].Value))
-                    Logger.debug('System: File running: {}'.format(p.Properties_[7].Value))
-                    Logger.debug('System: Default directory: {}'.format(os.path.dirname(p.Properties_[7].Value)))
-
-if SysTrayIcon.is_alive():
-    if os.path.isfile('tmp\\UI'):
-        os.remove('tmp\\UI')
-        if __name__ == '__main__':
-            exit(1)
-    elif os.path.isfile('tmp\\.runtime'):
-        if __name__ == '__main__':
-            exit(1)
 
 if not os.path.isdir('tmp'):
     os.makedirs('tmp')
@@ -144,76 +154,25 @@ start_time = time.time()
 #Base Exception 
 class PythonVersionNotSupported(BaseException):
     pass
-#Python Version
-P_VERSION = sys.version[:3]
+P_VERSION = sys.version[:3] #Python Version as float
 if not (3.6 <= float(P_VERSION) and float(P_VERSION) <= 3.9):
     raise PythonVersionNotSupported(
         'Python version {} not supported. (interpreter at {})'.format(P_VERSION, sys.executable)
         )   
 
-#essential app
-if '-d' in sys.argv:
+if '-d' in sys.argv: #Debug mode
     os.environ['DEBUG'] = '1'
     Logger.setLevel('DEBUG')
 
-#other components
 from threading import Thread
 from core import start
-
-#Classe di widget già formattati
-class pakedWidget():
-    def switch(self, **kwargs):
-        sw = MDSwitch(**kwargs)
-        if kwargs.get('pos_hint') == None:
-            sw.pos_hint = {'center_x': .80, 'center_y': .3}
-        return sw
-
-    def card(self, **kwargs):
-        mc = MDCard(**kwargs)
-        mc.orientation = 'vertical'
-        mc.padding = '8dp'
-        mc.size_hint = None, None
-        if kwargs.get('size') == None:
-            mc.size = "240dp", "280dp"
-        mc.elevation = 10
-        mc.border_radius = 20
-        mc.radius = [15]
-        return mc
-
-    def scrollview(self, **kwargs):
-        sv = ScrollView(**kwargs)
-        sv.do_scroll_x = False
-        sv.do_scroll_y = True
-        return sv
-
-    def gridlayout(self, **kwargs):
-        gl = GridLayout(**kwargs)
-        gl.size_hint_max_y = None
-        if kwargs.get('cols') == None:
-            gl.cols = 3
-        if kwargs.get('padding') == None:
-            gl.padding = "20dp"
-        if kwargs.get('spacing') == None:
-            gl.spacing = "20dp"
-        return gl
-
-    def boxlayout(self, **kwargs):
-        bl = BoxLayout(**kwargs)
-        bl.orientation = 'vertical'
-        return bl
-
-    def toolbar(self, title, **kwargs):
-        tb = MDToolbar(**kwargs)
-        tb.title = title
-        if kwargs.get('left_action_item_bypass') != True:
-            tb.left_action_items = [['menu', lambda x: UI().callback(x)]]
-        return tb
 
 #modified systrayicon class
 class SysTray(SysTrayIcon):
 
     def t_on_quit(self, *args):
-        win32gui.ShowWindow(os.environ['CONSOLE_HWND'], 1)
+        if os.environ.get('DEBUG') != None:
+            win32gui.ShowWindow(os.environ['CONSOLE_HWND'], 1)
         try:
             MDApp().stop()
         except NameError:
@@ -234,14 +193,7 @@ class SysTray(SysTrayIcon):
                     #Instead use os._exit() that kills the python interpreter
 
     def __init__(self, icon='datab\\graphic\\logo.ico', hover_text=None, menu_options=None, on_quit=t_on_quit, on_lbutton_press=None, on_rbutton_press=None, default_menu_index=None, window_class_name=None):      
-        if hover_text == None:
-            hover_text = self._hover_text
         super().__init__(icon, hover_text, menu_options=menu_options, on_quit=on_quit, on_lbutton_press=on_lbutton_press, on_rbutton_press=on_rbutton_press, default_menu_index=default_menu_index, window_class_name=window_class_name)
-
-    def run_as_thread(self):
-        self._message_loop_thread = Thread(target=self._message_loop_func, daemon=True)
-        self._message_loop_thread.start()
-        os.environ['SysTrayIcon_Thread_Id'] = str(self._message_loop_thread.ident)
 
 def change_text(*args, status:bool = True, debug: bool = False):
     if not debug:
@@ -256,9 +208,8 @@ def change_text(*args, status:bool = True, debug: bool = False):
         else:
             SysTrayIcon().EditMenuItemInfo("Show Debug Console", ("Hide Debug Console", None, lambda *args: [win32gui.ShowWindow(int(os.environ['CONSOLE_HWND']), 0), change_text(status=False,debug=True)]))
             time.sleep(0.1)
-    
-#metodo di boot              
-def bootloader():
+             
+def bootloader(): #metodo di boot 
     if not __name__ == '__main__':
         return
     database().initiallize(database().load_cfg)
@@ -285,13 +236,13 @@ def bootloader():
                             ("Play/Pause Audio", None, SysTrayIcon.Item_Deactivate),  ("Close Audio", None, SysTrayIcon.Item_Deactivate),),),
                         (None, None, SysTrayIcon.Separator),
                         *settings,
-                        ('Check for Updates', None, lambda *args: os.system('Updater.exe --search-for-updates --old-v {}'.format(__version__))),
+                        ('Check for Updates', None, lambda *args: Thread(target=os.system, args=('Updater.exe --search-for-updates --old-v {}'.format(database.settings['program_settings']['version']),)).start()),
                         (None, None, SysTrayIcon.Separator),)
 
-        SysTray("datab\\graphic\\logo.ico", "Automator", menu_options, on_lbutton_press=SysTrayIcon.show_menu).run_as_thread()
+        SysTray("datab\\graphic\\logo.ico", "Automator", menu_options, on_lbutton_press=SysTrayIcon.show_menu).start(daemon=True)
         os.environ['NO_SYSTRAY'] = '0'
         Logger.info('System: Started SysTray Icon started')
-        Logger.debug('System: Started SysTray Icon started at {} with ident {}'.format(datetime.datetime.now(), os.environ['SysTrayIcon_Thread_Id']))
+        Logger.debug('System: Started SysTray Icon started at {}'.format(datetime.datetime.now()))
 
     if os.path.isfile('tmp\\.runtime') or os.path.isfile('tmp\\.switch_acting'):
         try:
@@ -343,7 +294,7 @@ class StopApplication(BaseException):
 '''
 from kivy.config import Config
 if '--systemandmulti' in sys.argv: #add this option if you want to call automator from another python script as function
-        Config.set('kivy', 'keyboard_mode', 'systemandmulti') 
+    Config.set('kivy', 'keyboard_mode', 'systemandmulti') 
 Config.set('graphics', 'resizable', False)
 from kivy.clock import Clock
 Clock.max_iteration = 20
@@ -353,7 +304,7 @@ from kivy.core.window import Window
 #kivy screens
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 #Widgets
-from kivymd.uix.button import MDIconButton, MDRaisedButton, MDTextButton, MDFillRoundFlatButton, MDFlatButton
+from kivymd.uix.button import MDIconButton, MDRaisedButton, MDTextButton, MDFillRoundFlatButton, MDFlatButton, MDFloatingActionButton
 from kivymd.uix.textfield import MDTextField
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.dropdown import DropDown
@@ -368,7 +319,57 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.snackbar import Snackbar
 from kivymd.uix.dialog import MDDialog
 from kivy.uix.widget import Widget
-       
+
+#Classe di widget già formattati
+class pakedWidget():
+    def switch(self, **kwargs):
+        sw = MDSwitch(**kwargs)
+        if kwargs.get('pos_hint') == None:
+            sw.pos_hint = {'center_x': .80, 'center_y': .3}
+        return sw
+
+    def card(self, **kwargs):
+        mc = MDCard(**kwargs)
+        if not kwargs.get('orientation'):
+            mc.orientation = 'vertical'
+        mc.padding = '8dp'
+        mc.size_hint = None, None
+        if kwargs.get('size') == None:
+            mc.size = "240dp", "280dp"
+        mc.elevation = 10
+        mc.border_radius = 20
+        mc.radius = [15]
+        return mc
+
+    def scrollview(self, **kwargs):
+        sv = ScrollView(**kwargs)
+        sv.do_scroll_x = False
+        sv.do_scroll_y = True
+        return sv
+
+    def gridlayout(self, **kwargs):
+        gl = GridLayout(**kwargs)
+        gl.size_hint_max_y = None
+        if kwargs.get('cols') == None:
+            gl.cols = 3
+        if kwargs.get('padding') == None:
+            gl.padding = "20dp"
+        if kwargs.get('spacing') == None:
+            gl.spacing = "20dp"
+        return gl
+
+    def boxlayout(self, **kwargs):
+        bl = BoxLayout(**kwargs)
+        bl.orientation = 'vertical'
+        return bl
+
+    def toolbar(self, title, **kwargs):
+        tb = MDToolbar(**kwargs)
+        tb.title = title
+        if kwargs.get('left_action_item_bypass') != True:
+            tb.left_action_items = [['menu', lambda x: UI().callback(x)]]
+        return tb
+
 #Main class
 class UI(MDApp):
 
@@ -604,7 +605,7 @@ class UI(MDApp):
         lbl.halign = 'center'
         lbl.font_style = 'H2'
 
-        cr.bind(on_release=lambda *args: Screens.Not_Implemetnted())#UI().build_menu(2, True))
+        cr.bind(on_release=lambda *args: UI().build_menu(2, True))
         cr.add_widget(lbl)
         gl.add_widget(cr)
         sv.add_widget(gl)
@@ -810,37 +811,52 @@ class Screens:
             tb = pakedWidget().toolbar('Create New Automation')
             bx.add_widget(tb)
             sv = pakedWidget().scrollview()
-            fl = FloatLayout()
-            self.widgetref['float_layout'] = fl
-            gl = pakedWidget().gridlayout(cols=2)
-
+            sbx = pakedWidget().boxlayout()
+            self.widgetref['box_layout'] = sbx
+            gl1 = pakedWidget().gridlayout(cols=2)
             self.TitleBox = MDTextField(hint_text='Titolo', required=True, mode='fill', helper_text_mode='on_error', helper_text= "Il campo è obbligatorio")
             self.DescriptionBox = MDTextField(mode='fill', hint_text= "Descrizione (opzionale)")
             #adding a ref
             self.widgetref['title'] = self.TitleBox
             self.widgetref['subtitle'] = self.DescriptionBox
             #adding the widgets at the grid layout
-            gl.add_widget(self.TitleBox)
-            gl.add_widget(self.DescriptionBox)
-            #creating automation chooser
-            lbl = MDLabel(text='Agenti', pos_hint={'center_x':.5,'center_y':.78}, halign='center', font_style='H6')
-            fl.add_widget(lbl)
-            icb = MDIconButton(icon='datab\\graphic\\+.png', pos_hint={'center_x':.5,'center_y':.66}, on_release=lambda *args: self.agent_button_callback(*args))
-            self.widgetref['agent_+_button'] = icb
-            fl.add_widget(icb)
-            lbl= MDLabel(text='Azioni', pos_hint={'center_x':.5,'center_y':.54}, halign='center', font_style='H6')
-            self.widgetref['actions_to_do_lbl'] = lbl
-            fl.add_widget(lbl)
-            icb = MDIconButton(icon='datab\\graphic\\+.png', pos_hint={'center_x':.5,'center_y':.42}, on_release=lambda *args: self.actions_to_do_button_callback(*args))
-            self.widgetref['actions_to_do_+_button'] = icb
-            fl.add_widget(icb)
-            #cr = pakedWidget().card(size=("700dp","60dp"), pos_hint={'center_x':.5,'center_y':.40})
-            #fl.add_widget(cr)
-            fl.add_widget(gl)
-            sv.add_widget(fl)
-            bx.add_widget(sv)
+            gl1.add_widget(self.TitleBox)
+            gl1.add_widget(self.DescriptionBox)
+            sbx.add_widget(gl1)
+            gl = pakedWidget().gridlayout(cols=1)
 
-            return bx
+            #creating automation chooser
+            lbl = MDLabel(text='Agenti', halign='center', font_style='H6')#pos_hint={'center_x':.5,'center_y':.78},
+            lbx = pakedWidget().boxlayout()
+            lbx.add_widget(lbl)
+            gl.add_widget(lbx)
+            icb = MDFloatingActionButton(icon='plus')
+            icb.pos_hint={'center_x':.5}
+            icb.bind(on_release=lambda *args: self.agent_button_callback(*args))#pos_hint={'center_x':.5,'center_y':.66}, 
+            self.widgetref['agent_+_button'] = icb
+            icb_bx = pakedWidget().boxlayout()
+            icb_bx.add_widget(icb)
+            gl.add_widget(icb_bx)
+            lbl= MDLabel(text='Azioni', halign='center', font_style='H6')#pos_hint={'center_x':.5,'center_y':.54}, 
+            self.widgetref['actions_to_do_lbl'] = lbl
+            lbx = pakedWidget().boxlayout()
+            lbx.add_widget(lbl)
+            gl.add_widget(lbx)
+            icb = MDFloatingActionButton(icon='plus')
+            icb.pos_hint={'center_x':.5}
+            icb.bind(on_release=lambda *args: self.actions_to_do_button_callback(*args))#pos_hint={'center_x':.5,'center_y':.42}, 
+            self.widgetref['actions_to_do_+_button'] = icb
+            icb_bx = pakedWidget().boxlayout()
+            icb_bx.add_widget(icb)
+            gl.add_widget(icb_bx)
+            sbx.add_widget(gl)
+            sbx.bind(minimum_height=bx.setter('height'))
+            bx.add_widget(sbx)
+            bx.add_widget(BoxLayout())
+            bx.bind(minimum_height=bx.setter('height'))
+            #cr = pakedWidget().card(size=("700dp","60dp"), pos_hint={'center_x':.5,'center_y':.40})
+            sv.add_widget(bx)
+            return sv
 
         def select_from_dialog(self, dialog_histance=None, dialog_type=1):
             cls = BoxLayout(size_hint_y = None)
@@ -872,14 +888,7 @@ class Screens:
             return self.dialog
 
         def modify_ui(self, *args, **kwargs):
-            #addig the icons at a list
-            card_widget = []
-            xicon = MDIconButton(icon='datab\\graphic\\x-icon.png', pos_hint={'center_x':.9, 'center_y':5}, user_font_size='9dp')
-            card_widget.append(xicon)
-            editicon = MDIconButton(icon='datab\\graphic\\edit-icon.png', pos_hint={'center_x':.82, 'center_y':.5}, user_font_size='9dp')
-            card_widget.append(editicon)
-            #declaring fl
-            fl = self.widgetref['float_layout']
+            fl = self.widgetref['box_layout']
             #checking if rem_widget is a string or a Widget
             if kwargs.get('rem_widget') != None:
                 if isinstance(kwargs.get('rem_widget'), str):
@@ -888,15 +897,23 @@ class Screens:
                     fl.remove_widget(kwargs.get('rem_widget'))
             try:
                 if self.widgetref['agent_card'] == False:
-                    cr = pakedWidget().card(size=("700dp","80dp"), pos_hint={'center_x':.5,'center_y':.66})
+                    cr = pakedWidget().card(orientation='horizontal', size=(Window.size[0]-40, 80), pos_hint={'center_x':.5,'center_y':.66})
                 else:
                     Clock.unschedule(self.modify_ui)
                     return None
             except KeyError:
-                cr = pakedWidget().card(size=("700dp","80dp"), pos_hint={'center_x':.5,'center_y':.66})
-            #adding all the icons in the MDCard
-            for i in card_widget:
-                cr.add_widget(i)
+                cr = pakedWidget().card(orientation='horizontal', size=(Window.size[0]-40, 80), pos_hint={'center_x':.5,'center_y':.66})
+
+            xicon = MDFloatingActionButton(icon='trash-can')
+            xicon.pos_hint={'center_x':.9, 'center_y':1}
+            xicon.md_bg_color = (1, 0, 0, 1)
+            xicon.user_font_size='34dp'
+            cr.add_widget(xicon)
+            editicon = MDFloatingActionButton(icon='pencil')
+            editicon.pos_hint={'center_x':.82, 'center_y':.5}
+            editicon.user_font_size='34dp'
+            cr.add_widget(editicon)
+            
             fl.add_widget(cr)
             self.widgetref['agent_card'] = True
             Clock.unschedule(self.modify_ui)
