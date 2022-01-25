@@ -9,7 +9,7 @@ try:
     from datab.env_vars import DATABASE
     from libs.LibWin import Notifier
 except ImportError:
-    None
+    pass
 
 class database():
     keys = {}
@@ -26,6 +26,9 @@ class database():
             f = open('datab\\.config', 'w')
             f.write(SETTINGS)
             f.close()
+
+        if (os.environ.get('FIRST_SETUP') != None and os.environ.get('SETUP_DONE') == None):
+            self.configure()
 
         os.environ['close'] = '0'
         if not os.path.isfile(self.PATH):
@@ -71,6 +74,50 @@ class database():
                 pass
         return
     
+    def reset():
+        if os.path.isfile('datab\\.config'):
+            os.remove('datab\\.config')
+        f = open('datab\\.config', 'w')
+        f.write(SETTINGS)
+        f.close
+
+    def configure(self):
+        import win32gui, win32con
+        res = win32gui.MessageBox(None, 
+                                  'Benvenuto in Automator!\nStai per iniziare la procedura di setup guidata, continuare?', 
+                                  'Automator', win32con.MB_OKCANCEL)
+        if res != win32con.IDOK:
+            return
+        res = win32gui.MessageBox(None, 'Vorresti che Automator, mentre è in esecuzione, crei un\'icona nell\'area di notifica con un menù rapido?',
+                                  'Automator', win32con.MB_OKCANCEL)
+        if res == win32con.IDOK:
+            self.set('systray_active', True, True)
+            res = win32gui.MessageBox(None, 'Vorresti che alla chiusura del programma, esso non venga chiuso ma minimizzato nell\'area di notifica?',
+                                  'Automator', win32con.MB_OKCANCEL)
+            if res == win32con.IDOK:
+                self.set('hide_on_close', True, True)
+                res = win32gui.MessageBox(None, 'Vorresti che Automator invii una notifica alla minimizzazione?', 'Automator', win32con.MB_OKCANCEL)
+                if res == win32con.IDOK:
+                    self.set('notify_on_close', True, True)
+                else:
+                    self.set('notify_on_close', False, True)
+            else:
+                self.set('hide_on_close', False, True)
+                self.set('notify_on_close', False, True)
+        else:
+            self.set('systray_active', False, True)
+            self.set('hide_on_close', False, True)
+
+        res = win32gui.MessageBox(None, 'Vorresti che Automator si avviasse all\'avvio del sistema?', 'Automator', win32con.MB_OKCANCEL)
+        if res == win32con.IDOK:
+            os.environ['SETUP_DONE'] = '1'
+            self.set('start_with_windows', True)
+        else:
+            os.environ['SETUP_DONE'] = '1'
+            self.set('start_with_windows', False)
+        
+        win32gui.MessageBox(None, 'Ok, le tue preferenze sono state applicate!\nOra puoi iniziare a scoprire Automator!', 'Automator', win32con.MB_OK)
+
     def open_conf_file(self, *args):
         os.system('START /wait notepad datab\.config')
         database.settings = dict()
@@ -88,17 +135,12 @@ class database():
             import configparser
             cfg = configparser.ConfigParser()
             cfg.read('datab\\.config')
-
-        '''try:
-            hwnd = ' --hwnd ' + os.environ['Main_Window_hWnd']
-        except KeyError:'''
-        hwnd = ''
         if database().get_settings()['start_with_windows'] and not cfg.getboolean('program_settings', 'is_winreg_key'):
             if not os.path.isfile(os.path.join(os.getcwd(), 'tmp', 'set_reg_key.py')):
                 f = open(os.path.join(os.getcwd(), 'tmp', 'set_reg_key.py'), 'w')
                 f.write(SET_REG_KEY_CODE)
                 f.close()
-            os.system('START /wait /min ' + os.path.join(os.getcwd(), 'tmp', 'set_reg_key.py') + ' --add-winreg ' + os.path.join(os.getcwd(), 'Automator.exe') +' --silent' + hwnd)
+            os.system('START /wait /min cmd /c python ' + os.path.join(os.getcwd(), 'tmp', 'set_reg_key.py') + ' --add-winreg ' + os.path.join(os.getcwd(), 'Automator.exe') +' --silent')
             if os.path.isfile('tmp\\.SUCCESS'):
                 cfg.set('program_settings', 'is_winreg_key', 'true')
                 with open('datab\\.config', 'w') as configfile:
@@ -109,7 +151,7 @@ class database():
                 f = open(os.path.join(os.getcwd(), 'tmp', 'set_reg_key.py'), 'w')
                 f.write(SET_REG_KEY_CODE)
                 f.close()
-            os.system('START /wait /min ' + os.path.join(os.getcwd(), 'tmp', 'set_reg_key.py') + ' --remove-winreg' + hwnd)
+            os.system('START /wait /min cmd /c python ' + os.path.join(os.getcwd(), 'tmp', 'set_reg_key.py') + ' --remove-winreg')
             if os.path.isfile('tmp\\.SUCCESS'):
                 cfg.set('program_settings', 'is_winreg_key', 'false')
                 with open('datab\\.config', 'w') as configfile:
@@ -150,7 +192,9 @@ class database():
         
         return database.data
     
-    def set(self, key, value, *args) -> bool:
+    def set(self, key, value, avoid_initiallizzation=False, *args) -> bool:
+        if not hasattr(database, 'settings'):
+            database().get_settings()
         if database.settings == {}:
             database.settings = database().get_settings()
         sets = database.settings
@@ -165,7 +209,8 @@ class database():
             cfg.write(configfile)
         if key == 'start_with_windows':
             self.manage_winreg() # Apply winreg changes
-        database().initiallize(database().load_cfg)
+        if not avoid_initiallizzation:
+            database().initiallize(database().load_cfg)
 
     def manage_aut(self, aut_id, key, value):
         if database.data == {}:
@@ -219,7 +264,7 @@ class database():
             os.environ['HIDE_ON_CLOSE'] = '1'
         else:
             os.environ['HIDE_ON_CLOSE'] = '0'
+        if database.settings['user_settings']['update_at_startup']:
+            from threading import Thread
+            Thread(target=os.system, args=('Updater.exe --search-for-updates --old-v {} --no-message'.format(database.settings['program_settings']['version']),)).start()
         return database.settings['user_settings']
-
-    def configure(self):
-        pass

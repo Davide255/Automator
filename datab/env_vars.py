@@ -71,7 +71,7 @@ DESIGN = '''#:kivy 2.0.0
                 MDSwitch:
 '''
 
-# Backup database.py
+# Backup Automator.json
 DATABASE = '''[
       {
             "title": "Crea la tua prima automazione!",
@@ -86,8 +86,6 @@ DATABASE = '''[
                   ],
                   "action_to_do": [
                         [
-                            "Bluetooth",
-                            "switch_on"
                         ]
                   ]
             }
@@ -96,8 +94,6 @@ DATABASE = '''[
 
 #Linux Battery Info file
 LINUX_BATTERY_INFO = '/sys/class/power_supply/BAT0'
-
-AGENT_OPTIONS = []
 
 # Langs data
 LANGS = {
@@ -144,10 +140,11 @@ deact_adv = true
 systray_active = true
 hide_on_close = true
 notify_on_close = true
+update_at_startup = true
 
 [program_settings]
 is_winreg_key = false
-version = 0.11
+version = 0.13
 
 [loggers]
 keys = root,Admin_Client
