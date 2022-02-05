@@ -6,3 +6,4 @@ cython
 pywin32
 comtypes
 winrt
+xmltodict
