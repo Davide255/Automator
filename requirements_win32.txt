@@ -5,3 +5,4 @@ kivymd
 cython
 pywin32
 comtypes
+winrt
