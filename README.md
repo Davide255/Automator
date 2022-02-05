@@ -57,7 +57,7 @@ To crate a new automation, you can add at the 'Automator.json' a new dict like t
  ```                 
  define if the automation will be active or not:
  ```json     
-      "active": "True",
+      "active": true,
  ```                
  define an empty dict with key "added_prpriety"
  ```json     
@@ -162,7 +162,7 @@ To crate a new automation, you can add at the 'Automator.json' a new dict like t
           {
                 "title" : "My Awesome Automation",
                 "subtitle" : "My Really Awesome Automation",
-                "active": "True",
+                "active": true,
                 "added_propriety": {},
                 "actions": {
                      "automation": [ ["your actions"] ],
