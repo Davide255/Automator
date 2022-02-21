@@ -22,6 +22,7 @@
  - # Prerequisites
 
    - Python 3.6 =< =>3.9 (CURRENT NOT SUPPORTED PYHON 3.10), pip pakage manager 
+   - (suggested: https://www.python.org/ftp/python/3.8.0/python-3.8.0-amd64.exe)
    - !! WINDOWS SYSTEM ONLY !!
 
  - ## Installation
