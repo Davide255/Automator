@@ -185,4 +185,4 @@ To crate a new automation, you can add at the 'Automator.json' a new dict like t
 Davide Berardi
 
 # Version
-0.13 BETA dev
+0.14 BETA dev
