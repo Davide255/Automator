@@ -77,8 +77,9 @@ class Execute():
 
     class Process():
         def load(self, action: list) -> bool:
-            self.proc = ['is_running']
+            self.proc = ['is_running', 'on_kill', 'on_start']
             self.next = lambda: Attuator().load(Execute.do)
+            self.action = action
             for i in self.proc:
                 if i == self.proc[0]:
                     method = ['pid', 'name']
@@ -86,6 +87,19 @@ class Execute():
                         return self.is_running(pid=action[3])
                     else:
                         return self.is_running(name=action[3])
+                elif i == self.proc[1]:
+                    pass
+
+        def on_kill(self):
+            _next = self.next
+            self.next = None
+            method = ['pid', 'name']
+            if self.action[2] == method[0]:
+                fn = lambda: self.is_running(pid=self.action[3])
+            else:
+                fn = lambda: self.is_running(name=self.action[3])
+            if not fn():
+                pass
 
         def is_running(self, pid=None, name=None):
             if not hasattr(Execute.Process, 'next'):
@@ -94,7 +108,6 @@ class Execute():
                 from core import process
                 for i in process.getallprocs():
                     if pid in i:
-                        #print('processo con pid {} trovato'.format(self.pid))
                         if callable(self.next):
                             return self.next()
                         else:
@@ -161,7 +174,7 @@ class Execute():
                     return True
                     System().idle_timeout(action, Execute.do)
                 elif i == 'on_brightness':
-                    import screen_brightness_control as sbc
+                    import libs.sbcLib as sbc
                     if int(sbc.get_brightness(display=0)) == int(action[2]):
                         return Attuator().load(Execute.do)
                     else:
@@ -284,10 +297,16 @@ class Attuator():
         def start(self):
             if len(self.attuators) == 3:
                 self.attuators.append(False)
+            if len(self.attuators) == 4:
+                self.attuators.append(False)
             if self.attuators[2].endswith('.exe'):
                 if (self.attuators[3] or not Execute.Process().is_running(name=os.path.basename(self.attuators[2]))): #Don't start a new process 
-                                                                                                                         #if it's already started
+                                                                                                                      #if it's already started
+                    
                     os.startfile(self.attuators[2])
+                return True
+            elif os.path.isfile(self.attuators[2]):
+                os.startfile(self.attuators[2])
                 return True
             return False
         
@@ -314,7 +333,7 @@ class Attuator():
                    'mute_process':lambda: Audio.Controller.Process(self.attuators[2]).mute(),
                    'unmute_process':lambda: Audio.Controller.Process(self.attuators[2]).unmute(),
                    'stop/play_audio':self.stop_play_audio,
-                   'play_audio':lambda: Audio().play_audio(self.attuators[2], True if not len(self.attuators) == 4 else self.attuators[3], threadded=True),
+                   'play_audio':lambda: Audio().play_audio(self.attuators[2], threadded=True),
                    'music_queue':self.play_queue}
 
             self.attuators = attuators
@@ -356,7 +375,7 @@ class Attuator():
     class System():
         def load(self, attuators: list):
             from libs import sbcLib
-            import pyscreenshot as ImageGrab
+            import PIL as ImageGrab
             from datab.database import database
             cmds = {'reboot': lambda message='Rebooting', reboot=True: self.shotdown(message=message,reboot=reboot), 
                     'look': ctypes.windll.user32.LockWorkStation, 
@@ -405,7 +424,12 @@ class Attuator():
                                                     self.old_privs)
         
         def shotdown(self, machine:str=None, message:str='Shotting down', timeout:int=1, force:bool=False, reboot:bool=False):
-            win32api.InitiateSystemShutdown(machine, message, timeout, force, reboot)
+            try:
+                win32api.InitiateSystemShutdown(machine, message, timeout, force, reboot)
+            except OSError:
+                self.GetPrivileges()
+                win32api.InitiateSystemShutdown(machine, message, timeout, force, reboot)
+                self.AdjustPrivileges()
 
         def suspend(self, hibernate=False):
             if (win32api.GetPwrCapabilities()['HiberFilePresent'] == False and

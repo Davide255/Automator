@@ -2,9 +2,7 @@ import time, os
 
 #Audio Requirements
 from ctypes import POINTER, cast
-
 from os import environ
-from threading import Thread
 
 class Audio:
 
@@ -57,14 +55,17 @@ class Audio:
                         Logger.info('Audio: Volume:', interface.GetMasterVolume())
                         return interface.GetMasterVolume()
 
-        def setMasterLevel(self, level:float):
+        def setMasterLevel(self, level):
             if isinstance(level, int):
                 level = level/100
-            from comtypes import CLSCTX_ALL
+            if level > 1.0:
+                level = level/10
+            from comtypes import CLSCTX_ALL, CoUninitialize
             from libs.PyCAW import AudioUtilities, IAudioEndpointVolume
             interface = AudioUtilities.GetSpeakers().Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
             volume = cast(interface, POINTER(IAudioEndpointVolume))
             volume.SetMasterVolumeLevelScalar(level, None)
+            CoUninitialize()
 
     async def async_initiallize(self):
         from winrt.windows.media.playback import MediaPlayer
@@ -73,14 +74,14 @@ class Audio:
     def _menu_voices(self, state:bool):
         try:
             from libs.LibWin import SysTrayIcon
-        except OSError:
-            return False
-        if state:
-            Audio_voices = ("Play/Pause Audio", None, Audio().stop_play_audio),  ("Close Audio", None, Audio().quit_audio)
-        else:
-            Audio_voices = ("Play/Pause Audio", None, SysTrayIcon.Item_Deactivate),  ("Close Audio", None, SysTrayIcon.Item_Deactivate),
-        for i in Audio_voices:
-            SysTrayIcon().EditMenuItemInfo(i[0],i)      
+            if state:
+                Audio_voices = ("Play/Pause Audio", None, lambda *args: Audio().play_pause()),  ("Close Audio", None, lambda *args: Audio().quit()),
+            else:
+                Audio_voices = ("Play/Pause Audio", None, SysTrayIcon.Item_Deactivate),  ("Close Audio", None, SysTrayIcon.Item_Deactivate),
+            for i in Audio_voices:
+                SysTrayIcon().EditMenuItemInfo(i[0], i)
+        except ImportError:
+            pass   
 
     async def _play_audio(self, filename, keep_alive: bool = True):
         from winrt.windows.media.playback import MediaPlaybackItem, MediaPlaybackState
@@ -88,7 +89,21 @@ class Audio:
         from winrt.windows.storage import StorageFile
         import asyncio
         await asyncio.create_task(self.async_initiallize())
-        item = MediaPlaybackItem(core.MediaSource.create_from_storage_file(await StorageFile.get_file_from_path_async(filename)))
+        if isinstance(filename, str):
+            try:
+                file = await StorageFile.get_file_from_path_async(filename)
+            except RuntimeError:
+                print(filename, 'is not a valid file')
+                Audio.title = ''
+                return
+            Audio.title = file.display_name
+            Audio.source = core.MediaSource.create_from_storage_file(file)
+        elif isinstance(filename, core.MediaSource):
+            Audio.source = filename
+            Audio.title = ''
+        else:
+            raise Audio.FileTypeError('No file was specified!')
+        item = MediaPlaybackItem(Audio.source)
         self.mediaplayer.source = item
         self.mediaplayer.add_media_ended(self.media_ended)
         self.mediaplayer.play()
@@ -99,94 +114,118 @@ class Audio:
         props.music_properties.title = os.path.basename(filename)
         item.apply_display_properties(props)
 
+        self._menu_voices(True)
+
         if keep_alive:
             try:
                 session = self.mediaplayer.playback_session
-                while session != MediaPlaybackState.NONE:
-                    session = self.mediaplayer.playback_session
+                while session.playback_state != MediaPlaybackState.NONE:
                     time.sleep(2)
                 return
             except RuntimeError:
                 return
+            except KeyboardInterrupt:
+                Audio().quit()
 
     class StopMusic(BaseException):
         pass
 
     def media_ended(self, *args):
-        self.quit()
+        Audio().quit()
 
     def quit(self):
-        self.mediaplayer.close()
+        try:
+            self.mediaplayer.close()
+            if os.environ.get('DEBUG'):
+                print('[DEBUG  ] [Media       ] Audio player destroyed')
+        except AttributeError:
+            try: 
+                from kivy.logger import Logger
+                Logger.debug('Audio: No media player initiallized, skipping')
+            except ImportError:
+                pass
 
     def play(self):
         self.mediaplayer.play()
         
     def pause(self):
         self.mediaplayer.pause()
-        
-    def _show_song_metas(self):
-        'Internal function work in progress'
-        import audio_metadata
-        import win32con
-        import win32gui
-        meta = audio_metadata.load(environ['AUDIO_PATH'])
-        print(meta)
-        meta_tags = meta.tags
-        metas = {}
-        cat = ['artist', 'album', 'bmp', 'date', 'genre']
-        
-        for i in meta_tags:
-            if i in cat:
-                metas[i] = meta_tags[i]
-            else:
-                metas[i] = 'None'
 
-        meta_str = """artist: {}
-        album: {}
-        bpm: {}
-        year: {}
-        genre: {}
-        duration: {}
-        
-        Others:
-
-        bitrate: {}
-        bit_depth:
-        simple rate: {}""".format(metas['artist'], metas['album'], metas['bpm'], metas['date'], metas['genre'], 
-                                  meta.streaminfo['duration'], meta.streaminfo['bitrate'], meta.streaminfo['bit_depth'], meta.streaminfo['simple_rate'])
-
-        win32gui.MessageBox(None, meta_str, "Song Meta", win32con.MB_OK | win32con.IDI_INFORMATION)
-
-    def show_song_metas(self, threadded=True):
-
-        return
-        if threadded:
-            th = Thread(target=self._show_song_metas, daemon=True)
-            th.start()
-            Logger.debug('Audio: audio thread started at {} with ident {}'.format(datetime.now(), th.ident))
-        else:
-            self._show_song_metas()
-            Logger.debug('Audio: audio started at {}'.format(datetime.now()))
-
-    def play_audio(self, filename, threadded=True):
-        import asyncio
+    def play_pause(self):
         try:
-            from kivy.logger import Logger
-        except ImportError:
-            import logging as Logger
-        from datetime import datetime
+            from winrt.windows.media.playback import MediaPlaybackState
+            session = Audio.mediaplayer.playback_session.playback_state
+            if session == MediaPlaybackState.PLAYING:
+                Audio().pause()
+            elif session == MediaPlaybackState.PAUSED:
+                Audio().play()
+            else:
+                pass
+        except RuntimeError:
+            pass
+
+    def play_audio(self, filename, threadded=False):
+        import asyncio
         #: Union[str, bytes, PathLike[str], PathLike[bytes], IO]
         #: Optional[str] 
         if threadded:
             asyncio.run(self._play_audio(filename, False))
-            Logger.debug('Audio: audio started at {}'.format(datetime.now()))
+            #Logger.debug('Audio: audio started at {}'.format(datetime.now()))
+            return True
         else:
+            #Logger.debug('Audio: audio started at {}'.format(datetime.now()))
             asyncio.run(self._play_audio(filename))
-            Logger.debug('Audio: audio started at {}'.format(datetime.now()))
+            return True
+
+    def get_pos(self):
+        try:
+            return round(Audio.mediaplayer.playback_session.position.duration / 10000000)
+        except RuntimeError:
+            return 0
+    
+    def set_pos(self, date):
+        if isinstance(date, str):
+            date = sum(int(x) * 60 ** i for i, x in enumerate(reversed(date.split(':'))))
+        from winrt.windows.foundation import TimeSpan
+        tm = TimeSpan()
+        tm.duration = int(date) * 10000000
+        try:
+            Audio.mediaplayer.playback_session.position = tm
+        except RuntimeError:
+            pass
+        pass
+
+    def get_total(self):
+        try:
+            return round(Audio.source.duration.duration / 10000000)
+        except AttributeError:
+            return 0
+
+    def is_playing(self):
+        try:
+            from winrt.windows.media.playback import MediaPlaybackState
+            session = Audio.mediaplayer.playback_session.playback_state
+            return True if session == MediaPlaybackState.PLAYING else False
+        except RuntimeError:
+            return False
+
+    def set_volume(self, volume):
+        if volume > 1:
+            volume /= 100
+        Audio.mediaplayer.volume = volume
+
+    def get_volume(self):
+        try:
+            return Audio.mediaplayer.volume * 100
+        except AttributeError:
+            return 0
 
     class NotSupportedFile(BaseException):
         pass
     
+    class FileTypeError(BaseException):
+        pass
+
     class Queue:
 
         def __init__(self, queue_definition: object, random: bool = True, repeat: int = 0, threadded: bool = False, daemon: bool = None, **t_kwargs) -> None:
@@ -229,7 +268,7 @@ class Audio:
                 for example, stopping a queue:
 
                 >>> from audio import Audio
-                >>> Audio.Queue(['file1.mp3', 'some\\dir\\file2.mp3'])
+                >>> Audio.Queue(['file1.mp3', 'some\\dir\\file2.mp3'], threadded=True)
                 >>>  
                 >>> while True: # <- Leave the process open
                 >>>     if input() == '':  # <- on enter press
@@ -297,10 +336,12 @@ class Audio:
 
             Audio.Queue._list = MediaPlaybackList()
             Audio.Queue._list.shuffle_enabled = random
+            print(dir(Audio.Queue._list))
             file_list = {}
             for i in queue:
-                f = await StorageFile.get_file_from_path_async(i)
-                file_list[i] = f
+                if i.endswith('mp3'):
+                    f = await StorageFile.get_file_from_path_async(i)
+                    file_list[i] = f
             
             for f in file_list:
                 metas = os.path.basename(f).split(' - ')
@@ -320,23 +361,15 @@ class Audio:
 
             Audio.mediaplayer.source = Audio.Queue._list
             Audio.mediaplayer.play()
+            Audio()._menu_voices(True)
             if keep_alive:
                 try:
-                    session = Audio.mediaplayer.playback_session
+                    session = Audio.mediaplayer.playback_session.playback_state
                     while session != MediaPlaybackState.NONE:
-                        session = Audio.mediaplayer.playback_session
                         time.sleep(2)
                     return
                 except (RuntimeError, KeyboardInterrupt):
                     Audio().quit()
-
-        def _menu_voices(state:bool):
-            from libs.LibWin import SysTrayIcon
-            if state:
-                Audio_voices = ("Play/Pause Audio", None, Audio().stop_play_audio),  ("Close Audio", None, Audio().quit_audio)
-            else:
-                Audio_voices = ("Play/Pause Audio", None, SysTrayIcon.Item_Deactivate),  ("Close Audio", None, SysTrayIcon.Item_Deactivate),
-            SysTrayIcon().EditMenuItemInfo('Audio',('Audio', None, SysTrayIcon.SubMenu(Audio_voices)))
 
         def next():
             Audio.Queue._list.move_next()

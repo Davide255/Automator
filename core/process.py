@@ -1,25 +1,28 @@
 import subprocess
 
-'''def forpriority(priority, dicit):
-    for i in dicit:
-        for p in priority:
-          if p in i:
-            print('il programma {p} impedisce lo switch di rete')
-            return database.returnv
-
-    database.returnv = True      
-    return database.returnv'''
-
 def getallprocs():
-    cmd_out = execshproc('wmic process get description')
-    cmd_out = cmd_out.replace('\r','')
-    cmd_out = cmd_out.split('\n')
-    return cmd_out
+    try:
+        cmd_out = execshproc('wmic process get description,processid')
+        cmd_out = cmd_out.replace('\r','')
+        cmd_out = cmd_out.split('\n')
+        return cmd_out
+    except FileNotFoundError:
+        if input('wmic not in path! Can Automator add to the path variable? (y/n, default y) ') != 'n':
+            from datab.env_vars import ADD_WMIC_TO_PATH
+            ADD_WMIC_TO_PATH()
+            if input('A reboot is required to apply changes. Reboot now? (y/n, default y)') != 'n':
+                from core.execute import Attuator
+                Attuator.System().shotdown(message='Rebooting',reboot=True)
+                exit(0)
+            else:
+                return []
+        else:
+            return []
 
-def execshproc(proc, array=False, sep=' '):
+def execshproc(proc, lists=False, sep=' '):
     proc = proc.split(' ')
     cmd_out = subprocess.run(proc, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdout=subprocess.PIPE).stdout.decode('utf8')
-    if array == True:
+    if lists == True:
         return cmd_out.split(sep)
     else:
         return cmd_out

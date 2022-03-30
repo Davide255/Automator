@@ -16,7 +16,6 @@ def enum_aviable_networks():
     return network_ssids
 
 def connect(network):
-
     from libs.Win32Wifi import WlanOpenHandle, WlanEnumInterfaces, WlanCloseHandle, WlanConnect, \
     WLAN_CONNECTION_PARAMETERS, LPCWSTR, DOT11_SSID
 
