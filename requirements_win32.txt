@@ -1,4 +1,3 @@
-pyscreenshot
 psutil
 kivy
 kivymd
