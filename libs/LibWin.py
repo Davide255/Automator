@@ -4,17 +4,12 @@ from __future__ import unicode_literals
 
 # WINDOWS LIBRARY
 import logging, threading, os, uuid, ctypes, subprocess, sys, locale, platform
-from win32api import GetModuleHandle, GetSystemMetrics
-from win32con import CW_USEDEFAULT, IDI_APPLICATION, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_DESTROY, WM_USER, WS_OVERLAPPED, WS_SYSMENU
 from time import sleep
 from ctypes import (POINTER, c_ulong, c_char_p, c_int, c_void_p)
 from ctypes.wintypes import (BOOL, DWORD, HICON, WCHAR, HANDLE, HWND, HINSTANCE, HKEY, UINT)
 from ctypes import windll
 from enum import Enum
-import win32gui
-from win32gui import (RegisterWindowMessage, RegisterClass, UnregisterClass, LoadCursor, LoadIcon, LoadImage, CreateWindowEx, CreateWindow, 
-                    UpdateWindow, PostMessage, PostQuitMessage, Shell_NotifyIcon, SetForegroundWindow, DestroyWindow,
-                    NIM_MODIFY, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY)
+
 GetMessage = ctypes.windll.user32.GetMessageA
 TranslateMessage = ctypes.windll.user32.TranslateMessage
 DispatchMessage = ctypes.windll.user32.DispatchMessageA
@@ -33,6 +28,36 @@ DrawIconEx = ctypes.windll.user32.DrawIconEx
 SelectObject = ctypes.windll.gdi32.SelectObject
 DeleteDC = ctypes.windll.gdi32.DeleteDC
 DestroyIcon = ctypes.windll.user32.DestroyIcon
+
+# totally useless but to fix VSCode orange signs
+_none_t = list()
+for i in range(31):
+    _none_t.append(None)
+_none_t = tuple(_none_t)
+
+GetModuleHandle, GetSystemMetrics = None, None
+(CW_USEDEFAULT, IDI_APPLICATION, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_DESTROY, WM_USER, WS_OVERLAPPED, WS_SYSMENU, 
+RegisterWindowMessage, RegisterClass, UnregisterClass, LoadCursor, LoadIcon, LoadImage, CreateWindowEx, CreateWindow, 
+UpdateWindow, PostMessage, PostQuitMessage, Shell_NotifyIcon, SetForegroundWindow, DestroyWindow,
+NIM_MODIFY, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY) = _none_t
+
+_extern_import = ['from win32api import GetModuleHandle, GetSystemMetrics', 'import win32gui', 'from win32con import *',
+'from win32con import CW_USEDEFAULT, IDI_APPLICATION, IMAGE_ICON, LR_DEFAULTSIZE, LR_LOADFROMFILE, WM_DESTROY, WM_USER, WS_OVERLAPPED, WS_SYSMENU', 
+'from win32gui import (RegisterWindowMessage, RegisterClass, UnregisterClass, LoadCursor, LoadIcon, LoadImage, CreateWindowEx, CreateWindow, UpdateWindow, PostMessage, PostQuitMessage, Shell_NotifyIcon, SetForegroundWindow, DestroyWindow, NIM_MODIFY, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY)']
+
+try:
+    for i in _extern_import:
+        exec(i)
+    
+except ImportError:
+    from core.exceptions import DependencesFail
+    raise DependencesFail('One or more dependences missing!')
+
+def _Restart(custom_args= None):
+    
+    path = sys.argv[0]
+    os.system('cls')
+    os.system('{} {} {}'.format(sys.executable, path, *custom_args if custom_args else sys.argv[0:]))
 
 '''
 Function for showing taskbar effects
@@ -79,7 +104,7 @@ class IconStatusIter():
         
       Usage:
 
-        >>> ici().setProgress(done, total_length)     The progress indicator grows in size from left to right in proportion to the estimated amount
+        >>> ici().setProgress(int, total_length:int)  The progress indicator grows in size from left to right in proportion to the estimated amount
                                                       of the operation completed. This is a determinate progress indicator; a prediction is being 
                                                       made as to the duration of the operation.
 
@@ -107,7 +132,7 @@ class IconStatusIter():
         logging.debug('Initiallizing IconStatusIter class')
         try:
             import comtypes.client as cc
-            cc.GetModule('dlls\\taskbarlib.tlb')
+            cc.GetModule(os.path.realpath('dlls\\taskbarlib.tlb'))
             import comtypes.gen.TaskbarLib as tbl
             IconStatusIter.ITaskbarList3 = cc.CreateObject("{56FDF344-FD6D-11d0-958A-006097C9A090}", interface=tbl.ITaskbarList3)
             self.ITaskbarList3.HrInit()
@@ -116,7 +141,8 @@ class IconStatusIter():
             IconStatusIter.TBPF_NORMAL = 0x00000002
             IconStatusIter.TBPF_ERROR = 0x00000004
             IconStatusIter.TBPF_PAUSED = 0x00000008
-        except Exception as e:
+        except KeyError as e:
+            print(e)
             logging.debug(e)
             '''The taskbar API is only available for Windows 7 or higher, on lower windows versions, linux or Mac it will cause an exception. 
             Ignore the exception and don't use the API'''
@@ -146,11 +172,11 @@ class IconStatusIter():
         pass
 
     def setBusy(self, busy):
-        if self.ITaskbarList3 is not None and self.hWnd is not None:
+        if IconStatusIter.ITaskbarList3 is not None and IconStatusIter.hWnd is not None:
             if busy:
-                self.ITaskbarList3.SetProgressState(self.hWnd, self.TBPF_INDETERMINATE)
+                IconStatusIter.ITaskbarList3.SetProgressState(IconStatusIter.hWnd, IconStatusIter.TBPF_INDETERMINATE)
             else:
-                self.ITaskbarList3.SetProgressState(self.hWnd, self.TBPF_NOPROGRESS)
+                IconStatusIter.ITaskbarList3.SetProgressState(IconStatusIter.hWnd, self.TBPF_NOPROGRESS)
 
     def setPause(self, pause):
         if self.ITaskbarList3 is not None and self.hWnd is not None:
@@ -177,9 +203,14 @@ class IconStatusIter():
 '''
 Function to set a desktop wallpaper
 '''
-dll_loader = ctypes.CDLL
-class Desktop_Wallpaper(dll_loader(os.path.join(os.getcwd(), 'dlls\\Desktop.dll'))):
-    pass
+class Desktop_Wallpaper:
+    def __init__(self) -> None:
+        if not hasattr(self, 'dll'): #don't overload the dll
+            self.dll = ctypes.CDLL(os.path.join(os.getcwd(), 'dlls\\Desktop.dll'))
+        dll_methods = ['SetWallpaper']
+        for i in dll_methods:
+            if hasattr(self.dll, i):
+                exec("self.{} = self.dll.{}".format(i, i))
 
 '''
 Function to push windows notification
@@ -252,7 +283,7 @@ class Notifier(object):
                                         title))
         return None
 
-    def show_toast(self, title="Notification", msg="Here comes the message",
+    def show_toast(self, title="Automator", msg="Default message",
                     icon_path=None, duration=5, threaded=False):
 
         if not threaded:
@@ -371,7 +402,6 @@ Modified module infi.SysTrayIcon https://github.com/Infinidat/infi.systray <- th
 Variables and methods
 """
 
-from win32con import *
 WPARAM = ctypes.wintypes.WPARAM
 LPARAM = ctypes.wintypes.LPARAM
 HANDLE = ctypes.wintypes.HANDLE
@@ -536,7 +566,11 @@ class SysTrayIcon(object):
             SysTrayIcon._menu = CreatePopupMenu()
             self._create_menu(SysTrayIcon._menu, SysTrayIcon._menu_options)
         if isinstance(id, str):
-            id = list(SysTrayIcon._menu_names_by_id.keys())[list(SysTrayIcon._menu_names_by_id.values()).index(id)]
+            try:
+                id = list(SysTrayIcon._menu_names_by_id.keys())[list(SysTrayIcon._menu_names_by_id.values()).index(id)]
+            except ValueError as e:
+                if os.environ.get('DEBUG'):
+                    print('[DEBUG  ] ValueError: {}'.format(e))
         if menu_options[2] == SysTrayIcon.Item_Deactivate:
             item = PackMENUITEMINFO(menu_options[0], menu_options[1], deactivate=True)
         elif menu_options[2] == SysTrayIcon.Separator:
@@ -545,8 +579,11 @@ class SysTrayIcon(object):
             item = PackMENUITEMINFO(menu_options[0], menu_options[1])
         self._menu_names_by_id[id] = menu_options[0]
         SetMenuItemInfo(SysTrayIcon._menu, id, False, item)
-        if menu_options[2] != SysTrayIcon._menu_actions_by_id[id]:
-            SysTrayIcon._menu_actions_by_id[id] = menu_options[2]
+        try:
+            if menu_options[2] != SysTrayIcon._menu_actions_by_id[id]:
+                SysTrayIcon._menu_actions_by_id[id] = menu_options[2]
+        except KeyError:
+            pass
         return True
     
     def Item_Deactivate():
@@ -613,15 +650,6 @@ class SysTrayIcon(object):
         self._sub_menu = None
         self._register_class()
 
-    def __enter__(self):
-        """Context manager so SysTray can automatically start"""
-        self.start()
-        return self
-
-    def __exit__(self, *args):
-        """Context manager so SysTray can automatically close"""
-        self.shutdown()
-
     def WndProc(self, hwnd, msg, wparam, lparam):
         hwnd = HANDLE(hwnd)
         wparam = WPARAM(wparam)
@@ -660,6 +688,8 @@ class SysTrayIcon(object):
 
     def _message_loop_func(self):
         self._create_window()
+        SysTrayIcon._menu = CreatePopupMenu()
+        self._create_menu(SysTrayIcon._menu, self._menu_options)
         PumpMessages()
 
     def start(self, **kwargs):
