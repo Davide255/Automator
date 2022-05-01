@@ -29,7 +29,7 @@ class Screens:
     class Not_Implemetnted:
         def __init__(self) -> None:
             res = win32gui.MessageBox(os.environ.get('Main_Window_hWnd'), 
-                    'Questa schermata non è ancora disponibile in questa versione Pre-Release!',
+                    'Questa schermata non è disponibile in questa versione!',
                     'Not Implemeted Error',
                     win32con.MB_OK | win32con.MB_ICONINFORMATION)
             if res: #wait
@@ -40,16 +40,9 @@ class Screens:
         def initiallize(self):
             if '--no-execute' in sys.argv:
                 return
-            from core.audio.Audio import Audio
             screen = Screens.UI.sm.get_screen('main')
             toolbar = screen.children[0].children[1]
-            if hasattr(Audio, 'mediaplayer'):
-                if Audio().is_playing():
-                    toolbar.right_action_items = [["music-note", lambda *args: self.change_screen(1)]]
-                else:
-                    toolbar.right_action_items = [["music-note-off", lambda *x: x]]
-            else:
-                toolbar.right_action_items = [["music-note-off", lambda *x: x]]
+            toolbar.right_action_items = [["music-note", lambda *args: self.change_screen(1)]]
 
         def change_screen(self, scr: int = 0):
             if scr:
@@ -65,8 +58,7 @@ class Screens:
                 return
             mp = Screen(name='media_player')
             from core.graphics.music_player import GUI
-            GUI().bind(on_forward_button_pressed=lambda *args: print('pressed forward'))
-            mp.add_widget(GUI().build(left_actions=[["keyboard-backspace", lambda *args: self.change_screen()]]))
+            mp.add_widget(GUI(left_actions=[["keyboard-backspace", lambda *args: self.change_screen()]]))
             return mp
 
     class Main(Screen):
@@ -270,7 +262,7 @@ class Screens:
     class Template_automation_screen:
 
         def dispatch(self, widget=None):
-            #return Screens.Not_Implemetnted()
+            return Screens.Not_Implemetnted()
             if widget == None:
                 screen = self._empty()
             elif isinstance(widget, Widget):
@@ -308,7 +300,7 @@ class Screens:
             tb = pakedWidget().toolbar(self.title, left_action_item_bypass=True)
             tb.left_action_items = [["keyboard-backspace", lambda *args: Screens.Music_Player().change_screen()]]
             bx.add_widget(tb)
-            gl = pakedWidget().gridlayout(cols=2)#, row_force_default=True, row_default_height=30)
+            gl = pakedWidget().gridlayout(cols=2, row_force_default=True, row_default_height=30)
             gl.add_widget(MDLabel(text='Title:', font_style='H6', size_hint_y=None, height=20))
             gl.add_widget(MDLabel(text='Description:', font_style='H6', size_hint_y=None, height=20))
             from kivy.uix.anchorlayout import AnchorLayout

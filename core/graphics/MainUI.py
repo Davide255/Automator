@@ -8,7 +8,7 @@ from kivymd.app import MDApp
 from kivy.metrics import dp
 from kivy.core.window import Window
 from kivy.logger import Logger
-from kivy.clock import Clock
+from kivy.clock import Clock, mainthread
 #kivy screens
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 #Widgets
@@ -20,6 +20,7 @@ from kivymd.theming import ThemeManager
 from . import pakedWidget
 from .Theme import Dark_Theme_Manager
 from .Screens import Screens
+from threading import Timer
 
 from . import start_time, StopApplication, SysTrayIcon, change_text
 
@@ -31,7 +32,7 @@ class UI(MDApp):
             runtime[i] = database().get_value(i)['active']
         json.dump(runtime, fp)
 
-    def build(self, *args):
+    def build(self, *args, **kwargs):
         try:
             os.makedirs('tmp')
         except FileExistsError:
@@ -48,9 +49,6 @@ class UI(MDApp):
         Logger.debug('GL: Attivo on_request_close e on_resize')
         Window.bind(on_request_close=_hide)
 
-        Logger.debug('GL: creo UI.sm')
-        UI.sm = ScreenManager(transition=SlideTransition())
-
         Logger.debug('GL: aggiungo titolo e imposto i colori')
         self.title = "Automator"
         self.theme_cls = ThemeManager()
@@ -60,7 +58,20 @@ class UI(MDApp):
             'Dark'
         self.theme_cls.primary_palette = "Blue"
 
+        UI.sm = ScreenManager(transition=SlideTransition())
         _Screens = Screens(self)
+        self.sm.add_widget(_Screens.Loading_Screen().build())
+        self.sm.current = 'loading'
+
+        _ev = Timer(.2, lambda *args: self._build(_Screens))
+        _ev.setDaemon(True)
+        _ev.start()
+
+        return self.sm
+
+    @mainthread
+    def _build(self, _Screens, *args):
+        Clock.idle()
 
         Logger.debug('GL: creo main screen')
         main_screen = Screen(name='main')
@@ -78,7 +89,6 @@ class UI(MDApp):
         mp_screen = _Screens.Music_Player().build()
 
         Logger.debug('GL: aggiungo tutti gli schermi a UI.sm')
-        self.sm.add_widget(_Screens.Loading_Screen().build())
         if mp_screen:
             self.sm.add_widget(mp_screen)
         self.sm.add_widget(main_screen)
@@ -91,7 +101,6 @@ class UI(MDApp):
         Logger.debug('GL: mostro UI')
 
         UI.event = Clock.schedule_once(self.stop_loading, 1)
-        self.sm.current = 'loading'
 
         os.remove('tmp\\.startup')
 
@@ -380,6 +389,12 @@ class UI(MDApp):
 
     def not_save(self, *args):
         self.build_menu(*args)
+
+    def eleve(*args):
+        eleve()
+    
+    def _hide(*args):
+        _hide()
 
 def eleve(*args):
     #using Windows API to raise the window for a major speed

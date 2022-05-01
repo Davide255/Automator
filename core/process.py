@@ -1,10 +1,17 @@
 import subprocess
 
-def getallprocs():
+def getallprocs(name=True, pid=True):
     try:
-        cmd_out = execshproc('wmic process get description,processid')
+        args = ['description' if name else '', 'processid' if pid else '']
+        try:
+            args.remove('')
+        except ValueError:
+            pass
+        cmd_out = execshproc('wmic process get {}'.format(','.join(args) if len(args) > 1 else args[0]))
         cmd_out = cmd_out.replace('\r','')
         cmd_out = cmd_out.split('\n')
+
+        cmd_out.pop(0) #pop inner text
         return cmd_out
     except FileNotFoundError:
         if input('wmic not in path! Can Automator add to the path variable? (y/n, default y) ') != 'n':
