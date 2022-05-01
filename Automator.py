@@ -9,21 +9,25 @@ compatibility: Python 3.6 <> 3.9
 Options
 =======
 -d                      to activate debug function
+--force-logging         to force logging as default logger instead of kivy's one
 --set-logger-level [level]
                         to set costum level, levels are ['DEBUG', 'INFO', 'WARNING', 'ERROR']
 --disable-logger        to disable the logger function, THIS WILL DISPLAY NOATHING ON THE CONSOLE
 --console               to force the console (adding -d or setting DEBUG logger you can choose to hide or show the console)
 --silent                to force the app to run in background without any window
---no-systray            to deactivate temporary the SysTray icon on the taskbar. WARNING: in this way on closing the main window 
-                        the program will stop also if you have active the option "Minimize on close"!
---V -V                  return the version of the main program and exit
--h --help               show an help message and exit
+--no-systray            to deactivate temporary the SysTray icon on the taskbar. WARNING: in this way on closing the 
+                        main window the program will stop also if you have active the option "Minimize on close"!
+--version -V            return the version of the main program and exit
+--help -h               show an help message and exit
 --help-console          show the help message on the console
+
 
 Updates 0.14
 ============
-- Adding First-Startup configuration
-- 
+- Added First-Startup configuration
+- Improved default music player (https://github.com/Davide255/Win-Kivy-Music-Player)
+- Multi module setupped
+- Fixed Audio module
 - Bug Fixed
 
 Updates 0.13
@@ -40,9 +44,30 @@ Updates 0.12
 - Improved the app for a more confortable space.
 - Bug fix
 
+MIT License
+
+Copyright (c) 2022 Davide
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 '''
 
-__version__ = 0.13
+__version__ = 0.14
 __author__ = 'Davide Berardi'
 
 import sys
@@ -54,6 +79,10 @@ if sys.platform != 'win32': # Automator works only on windows yet
     raise UnsupportedOS('Your OS is not supported yet')
 
 try:
+    import comtypes
+    comtypes.CoUninitialize() #Uninitiallize the com space for windows Runtime
+    comtypes.CoInitializeEx(comtypes.COINIT_MULTITHREADED)
+    #from winrt import _winrt
     import os, win32gui, win32con, time
 except ImportError:
     import os, sys
@@ -65,10 +94,6 @@ except ImportError:
     os.system('{} {} {} --force-logging'.format(sys.executable, path, sys.argv[0:]))
     sys.exit(0)
 
-if '--listdir' in sys.argv:
-    print(os.listdir(os.path.dirname(__file__)))
-    sys.exit(0)
-
 #starting a chrono for the debug
 start_time = time.time()  
 
@@ -78,7 +103,7 @@ env_vars.START_TIME = start_time
 
 argv = sys.argv.copy() #copy the command-line args in a variable
 
-if '--V' in sys.argv or '-V' in sys.argv:
+if '--version' in sys.argv or '-V' in sys.argv:
     print('Automator\nVersion:',__version__, '\nAuthor:', __author__)
     sys.exit(0)
 if '-h' in sys.argv or '--help' in sys.argv:
@@ -120,19 +145,10 @@ os.environ['KIVY_NO_ARGS'] = '1'
 from datab.database import database
 
 from core.process import getallprocs
-try:
-    import comtypes
-except (ModuleNotFoundError, ImportError):
-    if not input('Some modules are missing!\nWould you install them now? [y/n] ') == 'n':
-        from Install_Helpers import Installation_Helper
-        Installation_Helper(ffmpeg=False, libav=False).install()
-    path = sys.argv[0]
-    print('\n<----------------- Restarting ----------------->\n')
-    os.system('{} {} {}'.format(sys.executable, path, sys.argv[0:]))
-    sys.exit(0)
+
 import datetime, win32api
 win32api.SetConsoleTitle('Automator - Console')
-time.sleep(0.5)
+time.sleep(0.1)
 os.environ['PID'] = str(os.getpid())
 console_hwnd = win32gui.FindWindow(None, 'Automator - Console')
 
@@ -150,7 +166,7 @@ else:
 try:
     assert console_hwnd
 except AssertionError:
-    console_hwnd = 0
+    console_hwnd = -1
 os.environ['CONSOLE_HWND'] = str(console_hwnd)
 os.environ['PLATFORM'] = 'win32'
 os.environ['NO_MEDIA_PLAYER_WINRT_MESSAGE'] = '1'
@@ -160,11 +176,52 @@ os.environ['KIVY_IMAGE'] = "pil,sdl2"
 os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\glew\\bin')
 os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\sdl2\\bin')
 
+def create_log_name(log_path="{}/log", filename="Automator-{}.log"):
+    if not os.path.exists(log_path.format(os.getcwd())):
+        os.mkdir(log_path.format(os.getcwd()))
+    find_file_amount = len(os.listdir(log_path.format(os.getcwd())))
+    full_log_path = "{}/{}".format(log_path.format(os.getcwd()), filename.format(find_file_amount + 1))
+    return full_log_path
+
 if '--force-logging' in sys.argv:
-    print('feature under development')
     import logging
-    logging.basicConfig(level='DEBUG')
+    '''logger = logging.getLogger("Automator-log")
+
+    if not '-d' in argv:
+        exec('logger.setLevel(logging.%s)'.replace('%s', 'INFO' if not '--set-logger-level' in sys.argv \
+            else sys.argv[sys.argv.index('--set-logger-level')+1] if sys.argv[sys.argv.index('--set-logger-level')+1] \
+            in ['DEBUG', 'INFO', 'WARNING', 'CRITICAL', 'ERROR'] else 'INFO'))
+        if logging.DEBUG == logging.root.level:
+            os.environ['DEBUG'] = '1'
+    else:
+        logger.setLevel(logging.DEBUG)
+        os.environ['DEBUG'] = '1'
+    
+    file_handler = logging.FileHandler(
+        filename=create_log_name(), mode="a+"
+    )
+    file_handler.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    file_format = logging.Formatter(
+        '%(asctime)s;%(name)s;%(levelname)s;%(message)s'
+    )
+    #On windows, colors may not work!
+    console_format = logging.Formatter(
+        "[%(asctime)s %(levelname)s] %(message)s", "%H:%M:%S"
+    )
+    file_handler.setFormatter(file_format)
+    console_handler.setFormatter(console_format)
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    logging.root = logger'''
+
+    logging.basicConfig(level='INFO' if not '--set-logger-level' in sys.argv \
+            else sys.argv[sys.argv.index('--set-logger-level')+1] if sys.argv[sys.argv.index('--set-logger-level')+1] \
+            in ['DEBUG', 'INFO', 'WARNING', 'CRITICAL', 'ERROR'] else 'INFO')
+
     os.environ['KIVY_NO_CONSOLELOG'] = '1' #suppress kivy logger
+    
     argv.remove('--force-logging')
 
 try:
@@ -179,16 +236,11 @@ except (ModuleNotFoundError, ImportError):
     sys.exit(0)
 
 if '--set-logger-level' in sys.argv:
-    if '--force-logging' in sys.argv:
-        level = sys.argv[sys.argv.index('--set-logger-level')+1]
-        if level in ['DEBUG', 'INFO', 'WARNING', 'CRITICAL', 'ERROR']:
-            logging.basicConfig(level=level)
+    level = sys.argv[sys.argv.index('--set-logger-level')+1]
+    if level in ['DEBUG', 'INFO', 'WARNING', 'CRITICAL', 'ERROR']:
+        Logger.setLevel(level)
     else:
-        level = sys.argv[sys.argv.index('--set-logger-level')+1]
-        if level in ['DEBUG', 'INFO', 'WARNING', 'CRITICAL', 'ERROR']:
-            Logger.setLevel(level)
-        else:
-            Logger.warning('System: level: {} not recognized, levels are DEBUG, INFO, WARNING, CRITICAL, ERROR'.format(level))
+        Logger.warning('System: level: {} not recognized, levels are DEBUG, INFO, WARNING, CRITICAL, ERROR'.format(level))
     argv.remove(level)
     argv.remove('--set-logger-level')
 
@@ -228,10 +280,7 @@ for i in getallprocs():
             win32gui.FlashWindow(hwnd, True)
         sys.exit(0)
 
-comtypes.CoUninitialize() #Uninitiallize the com space for windows Runtime
-
-#Setting kivy no args
-os.environ['KIVY_NO_ARGS'] = '1'
+#kivy settings
 os.environ['KIVY_IMAGE'] = "pil,sdl2"
 os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\glew\\bin')
 os.environ['PATH'] += ';' + os.path.expandvars('%AppData%\\Python\\share\\sdl2\\bin')
@@ -268,7 +317,6 @@ elif '--force-dark-theme' in sys.argv:
         print('=========')
         Logger.warning('Theme: \'--force-dark-theme\' works only if theme is set to Dark (current: {})'.format(database().get_settings()['theme_style']))
         print('=========')
-    argv.remove('--force-dark-theme')
 
 if '--silent' in argv:
     argv.remove('--silent') #this will be processed after
@@ -385,45 +433,31 @@ if '--systemandmulti' in sys.argv: #add this option if you want to call automato
     Config.set('kivy', 'keyboard_mode', 'systemandmulti') 
 Config.set('graphics', 'resizable', False)
 Config.set('input', 'mouse', 'mouse,disable_multitouch')
-from kivy.clock import Clock
-Clock.max_iteration = 20
 
-from core.graphics.MainUI import UI
+UI = MainUI.UI
 
 #Entry point
 if __name__ == '__main__':
     try:
         UI().run()
-
+        exit(1)
     except KeyboardInterrupt:
         Logger.warning('KeyboardInterrupt detected, abort')
-        win32gui.ShowWindow(os.environ['CONSOLE_HWND'], 1)
-        from core.audio.Audio import Audio
-        Audio().quit()
-        try:
-            os.remove(os.path.join(os.path.dirname(__file__), 'tmp', '.runtime'))
-        except FileNotFoundError:
-            pass
-
-        try:
-            os.removedirs(os.path.join(os.getcwd(), 'tmp'))
-        except (FileNotFoundError, OSError):
-            pass
         
-        Logger.debug('System: Process ended in {}'.format(datetime.datetime.fromtimestamp(time.time() - start_time).strftime("%M:%S")))
-
     except StopApplication:
-        win32gui.ShowWindow(os.environ['CONSOLE_HWND'], 1)
-        from core.audio.Audio import Audio
-        Audio().quit()
-        try:
-            os.remove(os.path.join(os.path.dirname(__file__), 'tmp', '.runtime'))
-        except FileNotFoundError:
-            pass
+        pass
+    
+    win32gui.ShowWindow(os.environ['CONSOLE_HWND'], 1)
+    from core.audio.Audio import Audio
+    Audio.quit()
+    try:
+        os.remove(os.path.join(os.path.dirname(__file__), 'tmp', '.runtime'))
+    except FileNotFoundError:
+        pass
 
-        try:
-            os.removedirs(os.path.join(os.getcwd(), 'tmp'))
-        except (FileNotFoundError, OSError):
-            pass
+    try:
+        os.removedirs(os.path.join(os.getcwd(), 'tmp'))
+    except (FileNotFoundError, OSError):
+        pass
         
-        Logger.debug('System: Process ended in {}'.format(datetime.datetime.fromtimestamp(time.time() - start_time).strftime("%M:%S")))
+    Logger.debug('System: Process ended in {}'.format(datetime.datetime.fromtimestamp(time.time() - start_time).strftime("%M:%S")))
