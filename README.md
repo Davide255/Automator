@@ -13,10 +13,11 @@
 
 # Updates
 
-- Fixed Network bug using windows API
-- Adding .exe support and create first pakage
-- Updated Process calsses in execute file
-- Fixed general bug
+- Added First-Startup configuration
+- Improved default music player (https://github.com/Davide255/Win-Kivy-Music-Player)
+- Multi module setupped
+- Fixed Audio module
+- Bug Fixed
    
 # Installation
  - # Prerequisites
