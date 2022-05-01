@@ -12,9 +12,28 @@
                   ],
                   "action_to_do": [
                         [
-                              "Network",
-                              "connect",
-                              "iPhone di Davide"
+                              "Bluetooth",
+                              "switch_on"
+                        ]
+                  ]
+            }
+      },
+      {
+            "title": "Avvia musica",
+            "subtitle": "Avvia Da Da Da.m4a",
+            "active": false,
+            "added_propriety": {},
+            "actions": {
+                  "automation": [
+                        [
+                              "Startup"
+                        ]
+                  ],
+                  "action_to_do": [
+                        [
+                              "Audio",
+                              "play_audio",
+                              "D:\\Automator\\Da Da Da.m4a"
                         ]
                   ]
             }
@@ -22,7 +41,7 @@
       {
             "title": "Change wifi",
             "subtitle": "My Really Awesome Automation",
-            "active": true,
+            "active": false,
             "added_propriety": {},
             "actions": {
                   "automation": [
@@ -45,7 +64,7 @@
       {
             "title": "Open Spotify",
             "subtitle": "Open Spotify at startup",
-            "active": true,
+            "active": false,
             "added_propriety": {},
             "actions": {
                   "automation": [
@@ -58,6 +77,7 @@
                               "Process",
                               "start",
                               "C:\\Users\\david\\AppData\\Roaming\\Spotify\\Spotify.exe",
+                              false,
                               false
                         ]
                   ]

@@ -254,7 +254,8 @@ class database():
         if (not database.settings['user_settings']['systray_active'] or '-No-SysTray' in sys.argv):
             os.environ['NO_SYSTRAY'] = '1'
         else:
-            os.environ['NO_SYSTRAY'] = '0'
+            if not os.environ.get('NO_SYSTRAY'):
+                os.environ['NO_SYSTRAY'] = '0'
         os.environ['Audio_playing'] = '0'
         if database.settings['user_settings']['notify_on_close']:
             os.environ['NOTIFY'] = '1'
@@ -264,7 +265,7 @@ class database():
             os.environ['HIDE_ON_CLOSE'] = '1'
         else:
             os.environ['HIDE_ON_CLOSE'] = '0'
-        if database.settings['user_settings']['update_at_startup']:
+        if database.settings['user_settings']['update_at_startup'] and not '--no-execute' in sys.argv:
             from threading import Thread
             Thread(target=os.system, args=('Updater.exe --search-for-updates --old-v {} --no-message'.format(database.settings['program_settings']['version']),)).start()
         return database.settings['user_settings']
